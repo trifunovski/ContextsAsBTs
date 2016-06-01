@@ -190,21 +190,16 @@ module Lemmas where
   unitR {Γ₁ , Γ₂} | n+m , sizeboth | n , size1 | m , size2 = trans (sym (assoc (snd (findSize (Γ₁ , (Γ₂ , ·)))))) (cong (refl size1) unitR) (unitRhelp1 sizeboth) (unitRhelp2 sizeboth) sizeboth
 
 
-  --  --  addEmptyCtx : ∀ {Γ₁ Γ₂ Δ} → Γ₁ ≡ Δ → Γ₂ empty → (Γ₁ , Γ₂) ≡ Δ
-  --  --  addEmptyCtx (emp x x₁) empt = emp (mulE x empt) x₁
-  --  --  addEmptyCtx (decom x x₁ eqpf) empt = decom (MD1 x) x₁ (addEmptyCtx eqpf empt)
+  addEmptyCtx : ∀ {Γ₁ Γ₂ Δ} → Γ₁ ≡ Δ → Γ₂ empty → (Γ₁ , Γ₂) ≡ Δ
+  addEmptyCtx (emp x x₁) empt = emp (mulE x empt) x₁
+  addEmptyCtx (decom x x₁ eqpf) empt = decom (MD1 x) x₁ (addEmptyCtx eqpf empt)
 
-  --  --  switchLemma : ∀ {Γ₁ Γ₂ Δ} → (Γ₁ , Γ₂) ≡ Δ → (Γ₂ , Γ₁) ≡ Δ
-  --  --  switchLemma (emp (mulE x x₁) x₂) = emp (mulE x₁ x) x₂
-  --  --  switchLemma (decom (MD1 x) x₁ eqpf) = decom (MD2 x) x₁ (switchLemma eqpf)
-  --  --  switchLemma (decom (MD2 x) x₁ eqpf) = decom (MD1 x) x₁ (switchLemma eqpf)
+  switchLemma : ∀ {Γ₁ Γ₂ Δ} → (Γ₁ , Γ₂) ≡ Δ → (Γ₂ , Γ₁) ≡ Δ
+  switchLemma (emp (mulE x x₁) x₂) = emp (mulE x₁ x) x₂
+  switchLemma (decom (MD1 x) x₁ eqpf) = decom (MD2 x) x₁ (switchLemma eqpf)
+  switchLemma (decom (MD2 x) x₁ eqpf) = decom (MD1 x) x₁ (switchLemma eqpf)
 
-  --  --  weirdLemma : ∀{Γ Δ A} → Γ decTo sCtx A and Δ → Δ empty → Γ ≡ sCtx A
-  --  --  weirdLemma (SD x) empt = decom (SD empt) (SD empt) (emp empt empt)
-  --  --  weirdLemma (MD1 decpf) (mulE empt empt₁) = addEmptyCtx (weirdLemma decpf empt) empt₁
-  --  --  weirdLemma (MD2 decpf) (mulE empt empt₁) = switchLemma (addEmptyCtx (weirdLemma decpf empt₁) empt)
-
-  --  --  decomposeToSingle : ∀ {Γ Δ A} → Γ ≡ sCtx A → Δ empty → Γ decTo sCtx A and Δ
-  --  --  decomposeToSingle (emp x ()) empt
-  --  --  decomposeToSingle (decom x (SD x₁) (emp x₂ x₃)) empt = swapEmptyCtx x x₂ empt
-  --  --  decomposeToSingle (decom x (SD x₁) (decom x₂ x₃ eqpf)) empt = abort (lemmaEmptyDecom x₁ x₃)
+  singleDecLemma : ∀{Γ Δ A} → Γ decTo sCtx A and Δ → Δ empty → Γ ≡ sCtx A
+  singleDecLemma (SD x) empt = decom (SD empt) (SD empt) (emp empt empt)
+  singleDecLemma (MD1 decpf) (mulE empt empt₁) = addEmptyCtx (singleDecLemma decpf empt) empt₁
+  singleDecLemma (MD2 decpf) (mulE empt empt₁) = switchLemma (addEmptyCtx (singleDecLemma decpf empt₁) empt)

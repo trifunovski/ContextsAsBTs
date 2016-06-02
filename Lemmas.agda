@@ -8,12 +8,19 @@ module Lemmas where
   lemmaEmptyDecom sinE ()
   lemmaEmptyDecom (mulE empt empt₁) (MD1 decpf) = lemmaEmptyDecom empt decpf
   lemmaEmptyDecom (mulE empt empt₁) (MD2 decpf) = lemmaEmptyDecom empt₁ decpf
+  lemmaEmptyDecom (mulE () empt₁) SD1
+  lemmaEmptyDecom (mulE empt ()) SD2
 
   lemma : ∀{Γ Δ} → Γ empty → Γ ≡ Δ → Δ empty
   lemma sinE (emp x x₁) = x₁
   lemma sinE (decom x x₁ pf) = abort (lemmaEmptyDecom sinE x)
   lemma (mulE empt empt₁) (emp x x₁) = x₁
   lemma (mulE {Γ₁}{Γ₂} empt empt₁) (decom x x₁ pf) = abort (lemmaEmptyDecom (mulE empt empt₁) x)
+
+  addEmptyCtx : ∀ {Γ Δ X} → Γ ≡ Δ → X empty → (Γ , X) ≡ Δ × (X , Γ) ≡ Δ × Γ ≡ (X , Δ) × Γ ≡ (Δ , X)
+  addEmptyCtx (emp x x₁) empt = emp (mulE x empt) x₁ , emp (mulE empt x) x₁ , emp x (mulE empt x₁) , emp x (mulE x₁ empt)
+  addEmptyCtx (decom x x₁ eqpf) empt with addEmptyCtx eqpf empt
+  ... | res1 , res2 , res3 , res4 = decom (MD1 x) x₁ res1 , decom (MD2 x) x₁ res2 , decom x (MD2 x₁) res3 , decom x (MD1 x₁) res4
 
   emptyCtxSizeLemma : ∀ {Γ Δ n} → Γ empty → Δ size n → (Γ , Δ) size n
   emptyCtxSizeLemma empt (s0 x) = s0 (mulE empt x)
@@ -56,12 +63,9 @@ module Lemmas where
   comm (s0 (mulE x x₁)) = emp (mulE x x₁) (mulE x₁ x)
   comm (sm (MD1 x) size) = decom (MD1 x) (MD2 x) (comm size)
   comm (sm (MD2 x) size) = decom (MD2 x) (MD1 x) (comm size)
+  comm (sm SD1 size) = decom SD1 SD2 (refl size)
+  comm (sm SD2 size) = decom SD2 SD1 (refl size)
 
-  assoc : ∀{Γ₁ Γ₂ Γ₃ n} → (Γ₁ , (Γ₂ , Γ₃)) size n → (Γ₁ , (Γ₂ , Γ₃)) ≡ ((Γ₁ , Γ₂) , Γ₃)
-  assoc (s0 (mulE x (mulE x₁ x₂))) = emp (mulE x (mulE x₁ x₂)) (mulE (mulE x x₁) x₂)
-  assoc (sm (MD1 x) size) = decom (MD1 x) (MD1 (MD1 x)) (assoc size)
-  assoc (sm (MD2 (MD1 x)) size) = decom (MD2 (MD1 x)) (MD1 (MD2 x)) (assoc size)
-  assoc (sm (MD2 (MD2 x)) size) = decom (MD2 (MD2 x)) (MD2 x) (assoc size)
 
   sym : ∀{Γ₁ Γ₂} → Γ₁ ≡ Γ₂ → Γ₂ ≡ Γ₁
   sym (emp x x₁) = emp x₁ x
@@ -75,7 +79,23 @@ module Lemmas where
 
   transHelper : ∀{Γ A B Γ₁ Γ₂} → Γ decTo sCtx A and Γ₁ → Γ decTo sCtx B and Γ₂ → Either (sCtx A ≡ sCtx B × Γ₁ ≡ Γ₂) (Σ[ Δ₁ ∈ Ctx ] Σ[ Δ₂ ∈ Ctx ] (Γ₁ decTo sCtx B and Δ₁ × Γ₂ decTo sCtx A and Δ₂ × Δ₁ ≡ Δ₂))
   transHelper {·} () dec2
-  transHelper {sCtx A} (SD x) (SD x₁) = Inl (decom (SD x₁) (SD x₁) (emp x₁ x₁) , emp x x₁)
+  transHelper {sCtx A} (SD x) (SD x₁) = Inl ((decom (SD x₁) (SD x₁) (emp x₁ x₁)) , (emp x x₁))
+  transHelper {_ , Γ₂} SD1 SD1 = Inl ((decom (SD sinE) (SD sinE) (emp sinE sinE)) , (refl (snd (findSize _))))
+  transHelper {_ , _} SD1 SD2 = Inr (· , · , SD sinE , SD sinE , emp sinE sinE)
+  transHelper {_ , _} SD2 SD1 = Inr (· , · , SD sinE , SD sinE , emp sinE sinE)
+  transHelper {Γ₂ , _} SD2 SD2 = Inl ((decom (SD sinE) (SD sinE) (emp sinE sinE)) , (refl (snd (findSize _))))
+  transHelper {_ , Γ₂} SD1 (MD1 (SD x)) with addEmptyCtx (refl (snd (findSize _))) x
+  ... | res1 , res2 , res3 , res4 = Inl ((decom (SD x) (SD x) (emp x x)) , res3)
+  transHelper {_ , Γ₁} SD1 (MD2 dec2) = Inr (_ , _ , dec2 , SD1 , refl (snd (findSize _)))
+  transHelper {Γ₁ , _} SD2 (MD1 dec2) = Inr (_ , _ , dec2 , SD2 , refl (snd (findSize _)))
+  transHelper {Γ₁ , _} SD2 (MD2 (SD x)) with addEmptyCtx (refl (snd (findSize _))) x
+  ... | res1 , res2 , res3 , res4 = Inl ((decom (SD x) (SD x) (emp x x)) , res4)
+  transHelper {_ , Γ₂} (MD1 (SD x)) SD1 with addEmptyCtx (refl (snd (findSize _))) x
+  ... | res1 , res2 , res3 , res4 = Inl ((decom (SD x) (SD x) (emp x x)) , res2)
+  transHelper {Γ , _} (MD1 dec1) SD2 = Inr (_ , _ , SD2 , dec1 , refl (snd (findSize _)))
+  transHelper {_ , Γ₂} (MD2 dec1) SD1 = Inr (_ , _ , SD1 , dec1 , refl (snd (findSize _)))
+  transHelper {Γ₂ , _} (MD2 (SD x)) SD2 with addEmptyCtx (refl (snd (findSize _))) x
+  ... | res1 , res2 , res3 , res4 = Inl ((decom (SD x) (SD x) (emp x x)) , res1)
   transHelper {Γ₁ , Γ₂} (MD1 dec1) (MD1 dec2) with transHelper dec1 dec2
   transHelper {Γ₁ , Γ₂} (MD1 dec1) (MD1 dec2) | Inl (emp () x₁ , ctxeq)
   transHelper {Γ₁ , Γ₂} (MD1 dec1) (MD1 dec2) | Inl (decom (SD x) (SD x₁) seq , ctxeq) = Inl ((decom (SD x) (SD x₁) seq) , (cong ctxeq (refl (snd (findSize Γ₂)))))
@@ -87,10 +107,31 @@ module Lemmas where
   transHelper {Γ₁ , Γ₂} (MD2 dec1) (MD2 dec2) | Inl (decom (SD x) (SD x₁) seq , ctxeq) = Inl ((decom (SD x) (SD x₁) seq) , (cong (refl (snd (findSize Γ₁))) ctxeq))
   transHelper {Γ₁ , Γ₂} (MD2 dec1) (MD2 dec2) | Inr (Δ₁ , Δ₂ , dec3 , dec4 , eq) = Inr ((Γ₁ , Δ₁) , (Γ₁ , Δ₂) , MD2 dec3 , MD2 dec4 , cong (refl (snd (findSize Γ₁))) eq)
 
+
   transNewHelper : ∀{Γ A B Γ₁ Γ₂} → Γ decTo sCtx A and Γ₁ → Γ₁ decTo sCtx B and Γ₂ → Σ[ Γ₃ ∈ Ctx ] (Γ decTo sCtx B and Γ₃ × Γ₃ decTo sCtx A and Γ₂)
   transNewHelper (SD ()) (SD x₁)
+  transNewHelper (SD (mulE () x₁)) SD1
+  transNewHelper (SD (mulE x ())) SD2
   transNewHelper (SD (mulE x x₁)) (MD1 dec2) = abort (lemmaEmptyDecom x dec2)
   transNewHelper (SD (mulE x x₁)) (MD2 dec2) = abort (lemmaEmptyDecom x₁ dec2)
+  transNewHelper SD1 (SD x) = _ , SD2 , SD x
+  transNewHelper SD1 SD1 = _ , MD2 SD1 , SD1
+  transNewHelper SD1 SD2 = _ , MD2 SD2 , SD1
+  transNewHelper SD2 (SD x) = _ , SD1 , SD x
+  transNewHelper SD2 SD1 = _ , MD1 SD1 , SD2
+  transNewHelper SD2 SD2 = _ , MD1 SD2 , SD2
+  transNewHelper SD1 (MD1 dec2) = _ , MD2 (MD1 dec2) , SD1
+  transNewHelper SD1 (MD2 dec2) = (_ , _) , MD2 (MD2 dec2) , SD1
+  transNewHelper SD2 (MD1 dec2) = ((_ , _) , _) , MD1 (MD1 dec2) , SD2
+  transNewHelper SD2 (MD2 dec2) = ((_ , _) , _) , MD1 (MD2 dec2) , SD2
+  transNewHelper (MD1 (SD ())) SD1
+  transNewHelper (MD1 SD1) SD1 = (_ , _) , MD1 SD2 , SD1
+  transNewHelper (MD1 SD2) SD1 = (_ , _) , MD1 SD1 , SD1
+  transNewHelper (MD1 dec1) SD2 = _ , SD2 , dec1
+  transNewHelper (MD2 dec1) SD1 = _ , SD1 , dec1
+  transNewHelper (MD2 (SD ())) SD2
+  transNewHelper (MD2 SD1) SD2 = (_ , _) , MD2 SD2 , SD2
+  transNewHelper (MD2 SD2) SD2 = (_ , _) , MD2 SD1 , SD2
   transNewHelper (MD1 dec1) (MD1 dec2) with transNewHelper dec1 dec2
   transNewHelper (MD1 dec1) (MD1 dec2) | Γ₃ , dec3 , dec4 = (Γ₃ , _) , MD1 dec3 , MD1 dec4
   transNewHelper {Γ = (Γ₁ , Γ₂)} (MD1 dec1) (MD2 {Γ₂' = Γ₂'} dec2) = (Γ₁ , Γ₂') , MD2 dec2 , MD1 dec1
@@ -128,12 +169,7 @@ module Lemmas where
                         → Γ ≡ Γ'
                         → Γ size n
                         → Σ[ Δ' ∈ Ctx ] (Γ' decTo sCtx A and Δ' × Δ ≡ Δ')
-    decProp (SD x) (emp () x₂) size
-    decProp (SD x) (decom (SD x₁) x₂ eqpf) (s0 ())
-    decProp (SD x) (decom (SD x₁) x₂ eqpf) s1 = _ , (x₂ , (emp x (lemma x₁ eqpf)))
-    decProp (SD x) (decom (SD x₁) x₂ eqpf) (sm x₃ size) = _ , (x₂ , (emp x (lemma x₁ eqpf)))
-    decProp (MD1 decpf) (emp x x₁) size = abort (lemmaEmptyDecom x (MD1 decpf))
-    decProp (MD2 decpf) (emp (mulE x x₁) x₂) size = abort (lemmaEmptyDecom x₁ decpf)
+    decProp dec (emp x x₁) size = abort (lemmaEmptyDecom x dec)
     decProp decpf (decom x x₁ eqpf) size with transHelper decpf x
     decProp decpf (decom x x₃ eqpf) size | Inl (emp () x₂ , eq2)
     decProp {Γ} {Γ'''} {A} {Δ} {Z} decpf (decom x x₃ eqpf) (s0 x₄) | Inl (decom (SD x₁) (SD x₂) eq1 , eq2) = abort (lemmaEmptyDecom x₄ x)
@@ -168,38 +204,148 @@ module Lemmas where
     trans (decom x₃ x₁ eq1) (decom x₂ x₄ eq2) (sm {_} {Δ} {A₂} {Z} x₅ size) size2 size3 | Inr (Δ₁ , Δ₂ , dec1 , dec2 , eq) | s0 x | size5 | size6 | size7 | Δ₃ , dec3 , eq3 | Δ₄ , dec4 , eq4 | Γ₄ , dec5 , dec6 = abort (lemmaEmptyDecom x dec3)
     trans (decom x₃ x₁ eq1) (decom x₂ x₄ eq2) (sm {_} {Δ} {A₂} {S n} x₅ size) size2 size3 | Inr (Δ₁ , Δ₂ , dec1 , dec2 , eq) | size4 | size5 | size6 | size7 | Δ₃ , dec3 , eq3 | Δ₄ , dec4 , eq4 | Γ₄ , dec5 , dec6 = decom x₃ dec5 (decom dec3 dec6 (trans (sym eq3) (trans eq eq4 (decdSize dec1 size5) (decdSize dec2 size7) (decdSize dec4 size6)) (decdSize dec3 size4) (decdSize dec1 size5) (decdSize dec4 size6)))
 
-  unitL : ∀ {Γ} → (· , Γ) ≡ Γ
-  unitL {·} = emp (mulE sinE sinE) sinE
-  unitL {sCtx x} = decom (MD2 (SD sinE)) (SD sinE) (emp (mulE sinE sinE) sinE)
-  unitL {Γ₁ , Γ₂} = trans (assoc (snd (findSize (· , (Γ₁ , Γ₂))))) (cong (unitL {Γ₁}) (refl {Γ₂} (snd (findSize Γ₂)))) (snd (findSize (· , (Γ₁ , Γ₂)))) (snd (findSize ((· , Γ₁) , Γ₂))) (snd (findSize (Γ₁ , Γ₂)))
+  mutual
+    size+1 : ∀{Γ A n} → Γ size n → (sCtx A , Γ) size S n × (Γ , sCtx A) size S n
+    size+1 (s0 x) = sm SD1 (s0 x) , sm SD2 (s0 x)
+    size+1 s1 = sm SD2 s1 , sm SD1 s1
+    size+1 (sm x size) = sm SD1 (sm x size) , sm (MD1 x) (snd (size+1 size))
+  
+    sizeHelper : ∀ {Γ₁ Γ₂ n} → (Γ₁ , Γ₂) size n → (Γ₁ , (Γ₂ , ·)) size n
+    sizeHelper (s0 (mulE x x₁)) = s0 (mulE x (mulE x₁ sinE))
+    sizeHelper (sm SD1 size) = equivSameSize (decom SD1 SD1 (unitR size)) (fst (size+1 size))
+    sizeHelper (sm SD2 size) = equivSameSize (cong (refl size) (decom SD1 (SD sinE) (emp sinE sinE))) (snd (size+1 size))
+    sizeHelper (sm (MD1 x) size) = sm (MD1 x) (sizeHelper size)
+    sizeHelper (sm (MD2 x) size) = sm (MD2 (MD1 x)) (sizeHelper size)
+    
+    assoc : ∀{Γ₁ Γ₂ Γ₃ n} → (Γ₁ , (Γ₂ , Γ₃)) size n → (Γ₁ , (Γ₂ , Γ₃)) ≡ ((Γ₁ , Γ₂) , Γ₃)
+    assoc (s0 (mulE x (mulE x₁ x₂))) = emp (mulE x (mulE x₁ x₂)) (mulE (mulE x x₁) x₂)
+    assoc (sm (MD1 x) size) = decom (MD1 x) (MD1 (MD1 x)) (assoc size)
+    assoc (sm (MD2 (MD1 x)) size) = decom (MD2 (MD1 x)) (MD1 (MD2 x)) (assoc size)
+    assoc (sm (MD2 (MD2 x)) size) = decom (MD2 (MD2 x)) (MD2 x) (assoc size)
+    assoc (sm {n = Z} (MD2 SD1) (s0 (mulE x x₁))) = decom (MD2 (MD1 (SD x₁))) (MD1 (MD2 (SD x₁))) (emp (mulE x (mulE x₁ x₁)) (mulE (mulE x x₁) x₁))
+    assoc (sm {n = S n} (MD2 SD1) size) = decom (MD2 (MD1 (SD sinE))) (MD1 (MD2 (SD sinE))) (cong (sym (unitR (snd (findSize _)))) (unitL (snd (findSize _))))
+    assoc (sm {n = Z} (MD2 SD2) (s0 (mulE x x₁))) = decom (MD2 (MD2 (SD x₁))) (MD2 (SD x₁)) (emp (mulE x (mulE x₁ x₁)) (mulE (mulE x x₁) x₁))
+    assoc (sm {n = S n} (MD2 SD2) size) = decom (MD2 (MD2 (SD sinE))) (MD2 (SD sinE)) (assoc (sizeHelper size))
+    assoc (sm SD1 size) = decom (MD1 (SD sinE)) (MD1 SD1) (unitL size)
 
-  unitRhelp1 : ∀ {Γ n} → Γ size n → (Γ , ·) size n
-  unitRhelp1 (s0 x) = s0 (mulE x sinE)
-  unitRhelp1 s1 = sm (MD1 (SD sinE)) (s0 (mulE sinE sinE))
-  unitRhelp1 (sm x size) = sm (MD1 x) (unitRhelp1 size)
+    unitL : ∀ {Γ n} → Γ size n → (· , Γ) ≡ Γ
+    unitL (s0 x) = emp (mulE sinE x) x
+    unitL s1 = decom SD2 (SD sinE) (emp sinE sinE)
+    unitL (sm x size)= decom (MD2 x) x (unitL size)
 
-  unitRhelp2 : ∀ {Γ₁ Γ₂ n} → (Γ₁ , Γ₂) size n → (Γ₁ , (Γ₂ , ·)) size n
-  unitRhelp2 (s0 (mulE x x₁)) = s0 (mulE x (mulE x₁ sinE))
-  unitRhelp2 (sm (MD1 x) size) = sm (MD1 x) (unitRhelp2 size)
-  unitRhelp2 (sm (MD2 x) size) = sm (MD2 (MD1 x)) (unitRhelp2 size)
-
-  unitR : ∀ {Γ} → (Γ , ·) ≡ Γ
-  unitR {·} = emp (mulE sinE sinE) sinE
-  unitR {sCtx x} = decom (MD1 (SD sinE)) (SD sinE) (emp (mulE sinE sinE) sinE)
-  unitR {Γ₁ , Γ₂} with findSize (Γ₁ , Γ₂) | findSize Γ₁ | findSize Γ₂
-  unitR {Γ₁ , Γ₂} | n+m , sizeboth | n , size1 | m , size2 = trans (sym (assoc (snd (findSize (Γ₁ , (Γ₂ , ·)))))) (cong (refl size1) unitR) (unitRhelp1 sizeboth) (unitRhelp2 sizeboth) sizeboth
+    unitR : ∀ {Γ n} → Γ size n → (Γ , ·) ≡ Γ
+    unitR (s0 x) = emp (mulE x sinE) x
+    unitR s1 = decom (MD1 (SD sinE)) (SD sinE) (emp (mulE sinE sinE) sinE)
+    unitR (sm {n = Z} x (s0 x₁)) = decom (MD1 x) x (unitR (s0 x₁))
+    unitR (sm {n = S n} x size) with unitR size
+    ... | res = decom (MD1 x) x res
 
 
-  addEmptyCtx : ∀ {Γ₁ Γ₂ Δ} → Γ₁ ≡ Δ → Γ₂ empty → (Γ₁ , Γ₂) ≡ Δ
-  addEmptyCtx (emp x x₁) empt = emp (mulE x empt) x₁
-  addEmptyCtx (decom x x₁ eqpf) empt = decom (MD1 x) x₁ (addEmptyCtx eqpf empt)
+    emptyEquiv : ∀ {Γ₁ Γ₂} → · ≡ (Γ₁ , Γ₂) → · ≡ Γ₁ × · ≡ Γ₂
+    emptyEquiv (emp x (mulE x₁ x₂)) = emp x x₁ , emp x x₂
+    emptyEquiv (decom () x₁ pf)
 
-  switchLemma : ∀ {Γ₁ Γ₂ Δ} → (Γ₁ , Γ₂) ≡ Δ → (Γ₂ , Γ₁) ≡ Δ
-  switchLemma (emp (mulE x x₁) x₂) = emp (mulE x₁ x) x₂
-  switchLemma (decom (MD1 x) x₁ eqpf) = decom (MD2 x) x₁ (switchLemma eqpf)
-  switchLemma (decom (MD2 x) x₁ eqpf) = decom (MD1 x) x₁ (switchLemma eqpf)
+    emptySubLemma : ∀ {Γ Δ} → Γ ⊢s Δ → Δ empty → Γ empty
+    emptySubLemma emptySub empt = empt
+    emptySubLemma var ()
+    emptySubLemma (comma sub sub₁) (mulE empt empt₁) = mulE (emptySubLemma sub empt) (emptySubLemma sub₁ empt₁)
+    emptySubLemma (equiv x sub x₁) empt = lemma (emptySubLemma sub (lemma empt (sym x₁))) (sym x)
 
-  singleDecLemma : ∀{Γ Δ A} → Γ decTo sCtx A and Δ → Δ empty → Γ ≡ sCtx A
-  singleDecLemma (SD x) empt = decom (SD empt) (SD empt) (emp empt empt)
-  singleDecLemma (MD1 decpf) (mulE empt empt₁) = addEmptyCtx (singleDecLemma decpf empt) empt₁
-  singleDecLemma (MD2 decpf) (mulE empt empt₁) = switchLemma (addEmptyCtx (singleDecLemma decpf empt₁) empt)
+    emptyLemma : ∀ {Γ} → Γ empty → · ≡ Γ
+    emptyLemma sinE = emp sinE sinE
+    emptyLemma (mulE pf pf₁) = emp sinE (mulE pf pf₁)
+
+    emptyLemmaV2 : ∀ {Γ} → · ≡ Γ → Γ empty
+    emptyLemmaV2 (emp x x₁) = x₁
+    emptyLemmaV2 (decom () x₁ eq)
+
+    lemmaSingleEmpty : ∀ {Γ A Δ} → Γ decTo sCtx A and Δ → · ≡ Δ → Γ ≡ sCtx A
+    lemmaSingleEmpty (SD x) empteq = decom (SD x) (SD x) (emp x x)
+    lemmaSingleEmpty (MD1 decpf) empteq = decom (MD1 decpf) (SD sinE) (sym empteq)
+    lemmaSingleEmpty (MD2 decpf) empteq = decom (MD2 decpf) (SD sinE) (sym empteq)
+    lemmaSingleEmpty SD1 empteq = decom SD1 (SD (emptyLemmaV2 empteq)) (refl (snd (findSize _)))
+    lemmaSingleEmpty SD2 empteq = decom SD2 (SD (emptyLemmaV2 empteq)) (refl (snd (findSize _)))
+
+    reflSub : ∀ {Γ} → Γ ⊢s Γ
+    reflSub {·} = emptySub
+    reflSub {sCtx x} = var
+    reflSub {Γ₁ , Γ₂} = comma reflSub reflSub
+
+    equivSubs : ∀ {Γ Δ} → Γ ≡ Δ → Γ ⊢s Δ
+    equivSubs eqpf = equiv eqpf reflSub (refl (snd (findSize _)))
+
+    commSub : ∀ {Γ₁ Γ₂} → (Γ₁ , Γ₂) ⊢s (Γ₂ , Γ₁)
+    commSub = equiv (comm (snd (findSize _))) reflSub (refl (snd (findSize _)))
+
+    assocSub : ∀ {Γ₁ Γ₂ Γ₃} → (Γ₁ , (Γ₂ , Γ₃)) ⊢s ((Γ₁ , Γ₂) , Γ₃)
+    assocSub = equiv (assoc (snd (findSize _))) reflSub (refl (snd (findSize _)))
+
+    symSub : ∀ {Γ Δ} → Γ ⊢s Δ → Δ ⊢s Γ
+    symSub emptySub = emptySub
+    symSub var = var
+    symSub (comma sub sub₁) = comma (symSub sub) (symSub sub₁)
+    symSub (equiv x sub x₁) = equiv (sym x₁) (symSub sub) (sym x)
+  
+    nat-suc : ∀ {n m} → n == m → S n == S m
+    nat-suc Refl = Refl
+
+    nat-dec : ∀ {n m} → S n == S m → n == m
+    nat-dec Refl = Refl
+
+    transNat : (n m p : Nat) → n == m → m == p → n == p
+    transNat Z Z Z x x₁ = Refl
+    transNat Z Z (S p) x ()
+    transNat Z (S m) Z () x₁
+    transNat Z (S m) (S p) () x₁
+    transNat (S n) Z Z () x₁
+    transNat (S n) Z (S p) () x₁
+    transNat (S n) (S m) Z x ()
+    transNat (S n) (S .n) (S .n) Refl Refl = Refl
+
+    plus-rh-Z : (n : Nat) → n == (n + Z)
+    plus-rh-Z Z = Refl
+    plus-rh-Z (S n) = nat-suc (plus-rh-Z n)
+  
+    plus-rh-S : (n m : Nat) → S (n + m) == n + (S m)
+    plus-rh-S Z m = Refl
+    plus-rh-S (S n) m = nat-suc (plus-rh-S n m)
+
+    plus-comm : (n m : Nat) → n + m == m + n
+    plus-comm Z m = plus-rh-Z m
+    plus-comm (S n) m with plus-comm n m | plus-rh-S (S m) n
+    ... | eq1 | eq2 = transNat ((S n) + m) (S (m + n)) (m + (S n)) (nat-suc eq1) (nat-dec eq2)
+
+    commaSizeLemma : {Γ₁ Γ₂ : Ctx} {n : Nat} → (Γ₁ , Γ₂) size n → Σ[ k ∈ Nat ] Σ[ p ∈ Nat ] (Γ₁ size k × Γ₂ size p × (n == (k + p)))
+    commaSizeLemma (s0 (mulE x x₁)) = 0 , 0 , s0 x , s0 x₁ , Refl
+    commaSizeLemma (sm (MD1 x) size) with commaSizeLemma size
+    commaSizeLemma (sm (MD1 x) size) | k , p , size1 , size2 , Refl = S k , p , sm x size1 , size2 , Refl
+    commaSizeLemma (sm (MD2 x) size)  with commaSizeLemma size
+    commaSizeLemma (sm (MD2 x) size) | k , p , size1 , size2 , Refl = k , S p , size1 , sm x size2 , plus-rh-S k p 
+    commaSizeLemma (sm SD1 size) = 1 , _ , s1 , size , Refl
+    commaSizeLemma (sm SD2 size) = _ , 1 , size , s1 , plus-comm 1 _
+
+    subSameSize : ∀ {Γ Δ n} → Γ ⊢s Δ → Γ size n → Δ size n
+    subSameSize emptySub size = size
+    subSameSize var size = size
+    subSameSize (comma sub sub₁) size with commaSizeLemma size
+    subSameSize (comma sub sub₁) size | k , p , size1 , size2 , Refl = addSizesLemma (subSameSize sub size1) (subSameSize sub₁ size2)
+    subSameSize (equiv x sub x₁) size1 = equivSameSize (sym x₁) (subSameSize sub (equivSameSize (sym x) size1))
+
+    singleCtxSize : ∀{Γ A} → Γ ≡ sCtx A → Γ size 1
+    singleCtxSize (emp x ())
+    singleCtxSize (decom x (SD x₁) eq) = sm x (s0 (lemma x₁ (sym eq)))
+  
+    wrongSize : ∀{Γ n} → Γ ≡ · → Γ size S n → Void
+    wrongSize (emp () x₁) s1
+    wrongSize (decom x () eqpf) s1
+    wrongSize eqpf (sm x size) = abort (lemmaEmptyDecom (emptyLemmaV2 (sym eqpf)) x)
+
+  -- switchLemma : ∀ {Γ₁ Γ₂ Δ} → (Γ₁ , Γ₂) ≡ Δ → (Γ₂ , Γ₁) ≡ Δ
+  -- switchLemma (emp (mulE x x₁) x₂) = emp (mulE x₁ x) x₂
+  -- switchLemma (decom (MD1 x) x₁ eqpf) = decom (MD2 x) x₁ (switchLemma eqpf)
+  -- switchLemma (decom (MD2 x) x₁ eqpf) = decom (MD1 x) x₁ (switchLemma eqpf)
+
+  -- singleDecLemma : ∀{Γ Δ A} → Γ decTo sCtx A and Δ → Δ empty → Γ ≡ sCtx A
+  -- singleDecLemma (SD x) empt = decom (SD empt) (SD empt) (emp empt empt)
+  -- singleDecLemma (MD1 decpf) (mulE empt empt₁) = addEmptyCtx (singleDecLemma decpf empt) empt₁
+  -- singleDecLemma (MD2 decpf) (mulE empt empt₁) = switchLemma (addEmptyCtx (singleDecLemma decpf empt₁) empt)

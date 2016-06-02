@@ -18,6 +18,8 @@ data _empty : Ctx → Set where
 
 data _decTo_and_ : Ctx → Ctx → Ctx → Set where
   SD : ∀{A Γ} → Γ empty → sCtx A decTo sCtx A and Γ
+  SD1 : ∀{A Γ} → (sCtx A , Γ) decTo sCtx A and Γ
+  SD2 : ∀{A Γ} → (Γ , sCtx A) decTo sCtx A and Γ
   MD1 : ∀ {A Γ₁' Γ₁ Γ₂} → Γ₁ decTo sCtx A and Γ₁' → (Γ₁ , Γ₂) decTo sCtx A and (Γ₁' , Γ₂)
   MD2 : ∀ {A Γ₂' Γ₁ Γ₂} → Γ₂ decTo sCtx A and Γ₂' → (Γ₁ , Γ₂) decTo sCtx A and (Γ₁ , Γ₂')
 

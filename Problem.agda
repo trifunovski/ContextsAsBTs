@@ -104,7 +104,6 @@ module Problem where
   unitRsub = equiv unitR reflSub (refl (snd (findSize _)))
 
 
-
   constructLemma : ∀{A Δ} → Σ[ Γ ∈ Ctx ] (Γ decTo sCtx A and Δ)
   constructLemma {Δ = ·} = _ , (SD sinE)
   constructLemma {A = A}{Δ = sCtx x} = (sCtx A , sCtx x) , {!MD1 (SD {A} sinE)!}

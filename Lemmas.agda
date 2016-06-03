@@ -204,7 +204,6 @@ module Lemmas where
     trans (decom x₃ x₁ eq1) (decom x₂ x₄ eq2) (sm {_} {Δ} {A₂} {Z} x₅ size) size2 size3 | Inr (Δ₁ , Δ₂ , dec1 , dec2 , eq) | s0 x | size5 | size6 | size7 | Δ₃ , dec3 , eq3 | Δ₄ , dec4 , eq4 | Γ₄ , dec5 , dec6 = abort (lemmaEmptyDecom x dec3)
     trans (decom x₃ x₁ eq1) (decom x₂ x₄ eq2) (sm {_} {Δ} {A₂} {S n} x₅ size) size2 size3 | Inr (Δ₁ , Δ₂ , dec1 , dec2 , eq) | size4 | size5 | size6 | size7 | Δ₃ , dec3 , eq3 | Δ₄ , dec4 , eq4 | Γ₄ , dec5 , dec6 = decom x₃ dec5 (decom dec3 dec6 (trans (sym eq3) (trans eq eq4 (decdSize dec1 size5) (decdSize dec2 size7) (decdSize dec4 size6)) (decdSize dec3 size4) (decdSize dec1 size5) (decdSize dec4 size6)))
 
-  mutual
     size+1 : ∀{Γ A n} → Γ size n → (sCtx A , Γ) size S n × (Γ , sCtx A) size S n
     size+1 (s0 x) = sm SD1 (s0 x) , sm SD2 (s0 x)
     size+1 s1 = sm SD2 s1 , sm SD1 s1
@@ -250,6 +249,8 @@ module Lemmas where
     emptySubLemma var ()
     emptySubLemma (comma sub sub₁) (mulE empt empt₁) = mulE (emptySubLemma sub empt) (emptySubLemma sub₁ empt₁)
     emptySubLemma (equiv x sub x₁) empt = lemma (emptySubLemma sub (lemma empt (sym x₁))) (sym x)
+    emptySubLemma (subequiv sub x sub₁) empt with emptySubLemma sub₁ empt
+    ... | res = emptySubLemma sub (lemma res (sym x))
 
     emptyLemma : ∀ {Γ} → Γ empty → · ≡ Γ
     emptyLemma sinE = emp sinE sinE
@@ -285,6 +286,7 @@ module Lemmas where
     symSub var = var
     symSub (comma sub sub₁) = comma (symSub sub) (symSub sub₁)
     symSub (equiv x sub x₁) = equiv (sym x₁) (symSub sub) (sym x)
+    symSub (subequiv sub x sub₁) = subequiv (symSub sub₁) (sym x) (symSub sub)
   
     nat-suc : ∀ {n m} → n == m → S n == S m
     nat-suc Refl = Refl
@@ -330,6 +332,8 @@ module Lemmas where
     subSameSize (comma sub sub₁) size with commaSizeLemma size
     subSameSize (comma sub sub₁) size | k , p , size1 , size2 , Refl = addSizesLemma (subSameSize sub size1) (subSameSize sub₁ size2)
     subSameSize (equiv x sub x₁) size1 = equivSameSize (sym x₁) (subSameSize sub (equivSameSize (sym x) size1))
+    subSameSize (subequiv sub x sub₁) size with subSameSize sub size
+    ... | res = subSameSize sub₁ (equivSameSize (sym x) res)
 
     singleCtxSize : ∀{Γ A} → Γ ≡ sCtx A → Γ size 1
     singleCtxSize (emp x ())
@@ -381,3 +385,62 @@ module Lemmas where
     singleDecLemma SD1 x = decom SD1 (SD x) (emp x x)
     singleDecLemma SD2 x = decom SD2 (SD x) (emp x x)
 
+
+    transSub : ∀ {Γ₁ Γ₂ Γ₃ n} → Γ₁ ⊢s Γ₂ → Γ₂ ⊢s Γ₃ → Γ₁ size n → Γ₂ size n → Γ₃ size n → Γ₁ ⊢s Γ₃
+    transSub {n = Z} sub1 sub2 (s0 x) (s0 x₁) (s0 x₂) = equiv (emp x x₁) sub2 (emp x₂ x₂)
+    transSub {n = S n} emptySub sub2 (sm () size1) size2 size3
+    transSub {n = S .0} var sub2 s1 s1 size3 = sub2
+    transSub {n = S .0} var sub2 s1 (sm (SD x) (s0 x₁)) size3 = sub2
+    transSub {n = S .0} var sub2 (sm (SD x) size1) s1 size3 = sub2
+    transSub {n = S n} var sub2 (sm (SD x) size1) (sm (SD x₁) size2) size3 = sub2
+    transSub (comma sub1 sub2) (comma sub3 sub4) size1 size2 size3 with commaSizeLemma size2
+    transSub (comma sub1 sub2) (comma sub3 sub4) size1 size2 size3 | k , p , size4 , size5 , Refl = comma (transSub sub1 sub3 (subSameSize (symSub sub1) size4) size4 (subSameSize sub3 size4)) (transSub sub2 sub4 (subSameSize (symSub sub2) size5) size5 (subSameSize sub4 size5))
+    transSub sub1 (equiv x sub3 x₁) size1 size2 size3 = subequiv sub1 x (equiv (refl (equivSameSize (sym x) size2)) sub3 x₁)
+    transSub (equiv x sub1 x₁) sub2 size1 size2 size3 = subequiv (equiv x sub1 (refl (equivSameSize x₁ size2))) x₁ sub2
+    transSub (subequiv sub1 x sub2) sub3 size1 size2 size3 = equiv (refl size1) (subequiv sub1 x (transSub sub2 sub3 (subSameSize (symSub sub2) size2) size2 size3)) (refl size3)
+    transSub sub1 (subequiv sub2 x sub3) size1 size2 size3 = equiv (refl size1) (subequiv (transSub sub1 sub2 size1 size2 (subSameSize sub2 size2)) x sub3) (refl size3)
+
+    subLemma : ∀ {Γ Γ' Δ' A} → Γ decTo sCtx A and Γ'
+                           → Δ' ⊢s Γ'
+                           → Σ[ Δ ∈ Ctx ] (Δ decTo sCtx A and Δ' × Δ ⊢s Γ)
+    subLemma (SD x) emptySub = _ , ((SD x) , var)
+    subLemma (SD ()) var
+    subLemma (SD (mulE x x₁)) (comma sub sub₁) = _ , ((SD (mulE (emptySubLemma sub x) (emptySubLemma sub₁ x₁))) , var)
+    subLemma (MD1 dec) (comma sub sub₁) with subLemma dec sub
+    ... | Δ , dec2 , sub2 = _ , ((MD1 dec2) , comma sub2 sub₁)
+    subLemma (MD2 dec) (comma sub sub₁) with subLemma dec sub₁
+    ... | Δ , dec2 , sub2 = _ , (MD2 dec2 , comma sub sub2)
+    subLemma dec (equiv x₁ sub x₂) with decProp2 dec (sym x₂) (snd (findSize _))
+    ... | Γ' , dec2 , eq2 with subLemma dec2 sub
+    ... | Δ , dec3 , sub2 with decProp2 dec3 (sym x₁) (snd (findSize _)) | findSize Γ' | findSize Δ
+    ... | Γ'' , dec4 , eq3 | n , size1 | m , size2 = Γ'' , dec4 , transSub (equivSubs (sym eq3)) (transSub sub2 (equivSubs (sym eq2)) (subSameSize (symSub sub2) size1) size1 (equivSameSize eq2 size1)) (equivSameSize (sym eq3) size2) size2 (equivSameSize eq2 (subSameSize sub2 size2))
+    subLemma SD1 emptySub = (_ , ·) , SD1 , comma var emptySub
+    subLemma SD1 var = (_ , _) , SD1 , comma var var
+    subLemma SD1 (comma sub sub₁) = (_ , (_ , _)) , SD1 , comma var (comma sub sub₁)
+    subLemma SD2 emptySub = (· , _) , SD2 , comma emptySub var
+    subLemma SD2 var = (_ , _) , SD2 , comma var var
+    subLemma SD2 (comma sub sub₁) = ((_ , _) , _) , SD2 , comma (comma sub sub₁) var
+    subLemma dec (subequiv sub x sub₁) with subLemma dec sub₁
+    ... | Δ , dec2 , sub2 with decProp2 dec2 (sym x) (snd (findSize _))
+    ... | Γ' , dec3 , eq2 with subLemma dec3 sub
+    ... | Δ' , dec4 , sub3 = Δ' , dec4 , subequiv sub3 (sym eq2) sub2
+
+    subLemma2 : ∀ {Γ Δ Δ' A} → Γ ⊢s Δ → Δ decTo sCtx A and Δ' → Σ[ Γ' ∈ Ctx ] (Γ decTo sCtx A and Γ' × Γ' ⊢s Δ')
+    subLemma2 emptySub ()
+    subLemma2 var (SD x) = · , SD sinE , equiv (emp sinE sinE) emptySub (emp sinE x)
+    subLemma2 (comma sub sub₁) (MD1 decpf) with subLemma2 sub decpf
+    ... | Γ' , dec1 , sub2 = (Γ' , _) , MD1 dec1 , comma sub2 sub₁
+    subLemma2 (comma sub sub₁) (MD2 decpf) with subLemma2 sub₁ decpf
+    ... | Γ' , dec1 , sub2 = (_ , Γ') , MD2 dec1 , comma sub sub2
+    subLemma2 (equiv x sub x₁) dec with decProp dec (sym x₁) (snd (findSize _))
+    ... | Δ' , dec2 , eq2 with subLemma2 sub dec2
+    ... | Γ' , dec3 , sub2 with decProp dec3 (sym x) (snd (findSize _)) | findSize Δ' | findSize Γ'
+    ... | Δ'' , dec4 , eq3 | n , size1 | m , size2 = Δ'' , dec4 , transSub (equivSubs (sym eq3)) (transSub sub2 (equivSubs (sym eq2)) (subSameSize (symSub sub2) size1) size1 (equivSameSize eq2 size1)) (equivSameSize (sym eq3) size2) size2 (equivSameSize eq2 (subSameSize sub2 size2))
+    subLemma2 {Δ' = Δ'} (comma sub sub₁) SD1 with subLemma2 sub (SD sinE) | findSize (· , Δ')
+    ... | Γ' , dec1 , sub2 | n , size1 = (Γ' , _) , MD1 dec1 , transSub (comma sub2 sub₁) unitLsub (subSameSize (comma (symSub sub2) (symSub sub₁)) size1) size1 (equivSameSize (sym (unitL (snd (findSize _)))) size1) 
+    subLemma2 {Δ' = Δ'} (comma sub sub₁) SD2 with subLemma2 sub₁ (SD sinE) | findSize (Δ' , ·)
+    ... | Γ' , dec1 , sub2 | n , size1 = (_ , Γ') , MD2 dec1 , transSub (comma sub sub2) unitRsub (subSameSize (comma (symSub sub) (symSub sub2)) size1) size1 (equivSameSize (sym (unitR (snd (findSize _)))) size1)
+    subLemma2 (subequiv sub x sub₁) dec with subLemma2 sub₁ dec
+    ... | Γ' , dec2 , sub2 with decProp dec2 (sym x) (snd (findSize _))
+    ... | Δ' , dec3 , eq2 with subLemma2 sub dec3
+    ... | Γ'' , dec4 , sub3 = Γ'' , dec4 , subequiv sub3 (sym eq2) sub2

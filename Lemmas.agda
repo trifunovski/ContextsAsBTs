@@ -340,12 +340,44 @@ module Lemmas where
     wrongSize (decom x () eqpf) s1
     wrongSize eqpf (sm x size) = abort (lemmaEmptyDecom (emptyLemmaV2 (sym eqpf)) x)
 
-  -- switchLemma : ∀ {Γ₁ Γ₂ Δ} → (Γ₁ , Γ₂) ≡ Δ → (Γ₂ , Γ₁) ≡ Δ
-  -- switchLemma (emp (mulE x x₁) x₂) = emp (mulE x₁ x) x₂
-  -- switchLemma (decom (MD1 x) x₁ eqpf) = decom (MD2 x) x₁ (switchLemma eqpf)
-  -- switchLemma (decom (MD2 x) x₁ eqpf) = decom (MD1 x) x₁ (switchLemma eqpf)
+    congSub : ∀ {Γ₁ Γ₂ Δ₁ Δ₂} → Γ₁ ⊢s Δ₁ → Γ₂ ⊢s Δ₂ → (Γ₁ , Γ₂) ⊢s (Δ₁ , Δ₂)
+    congSub sub1 sub2 = comma sub1 sub2
+  
+    unitLsub : ∀ {Γ} → (· , Γ) ⊢s Γ
+    unitLsub = equiv (unitL (snd (findSize _))) reflSub (refl (snd (findSize _)))
+  
+    unitRsub : ∀ {Γ} → (Γ , ·) ⊢s Γ
+    unitRsub = equiv (unitR (snd (findSize _))) reflSub (refl (snd (findSize _)))
+  
+    constructLemma : ∀{A Δ} → Σ[ Γ ∈ Ctx ] (Γ decTo sCtx A and Δ)
+    constructLemma {Δ = ·} = _ , (SD sinE)
+    constructLemma {A = A}{Δ = sCtx x} = (sCtx A , sCtx x) , SD1
+    constructLemma {A = A}{Δ = Δ₁ , Δ₂} with constructLemma {A} {Δ₁}
+    ... | Γ₁ , dec = (Γ₁ , Δ₂) , MD1 dec
+  
+    decProp2 : ∀{Γ A Δ Δ' n} → Γ decTo sCtx A and Δ
+                             → Δ ≡ Δ'
+                             → Γ size n
+                             → Σ[ Γ' ∈ Ctx ] (Γ' decTo sCtx A and Δ' × Γ ≡ Γ')
+    decProp2 {A = A} {Δ' = Δ'} dec eq size with constructLemma {A} {Δ'}
+    ... | Γ' , dec2 = Γ' , dec2 , decom dec dec2 eq
 
-  -- singleDecLemma : ∀{Γ Δ A} → Γ decTo sCtx A and Δ → Δ empty → Γ ≡ sCtx A
-  -- singleDecLemma (SD x) empt = decom (SD empt) (SD empt) (emp empt empt)
-  -- singleDecLemma (MD1 decpf) (mulE empt empt₁) = addEmptyCtx (singleDecLemma decpf empt) empt₁
-  -- singleDecLemma (MD2 decpf) (mulE empt empt₁) = switchLemma (addEmptyCtx (singleDecLemma decpf empt₁) empt)
+    emptyEquivLemma : ∀{Γ Δ} → Γ empty → Γ ≡ Δ → Δ empty
+    emptyEquivLemma empt (emp x x₁) = x₁
+    emptyEquivLemma empt (decom x x₁ eq) = abort (lemmaEmptyDecom empt x)
+    
+    
+    switchLemma : ∀ {Γ₁ Γ₂ Δ} → (Γ₁ , Γ₂) ≡ Δ → (Γ₂ , Γ₁) ≡ Δ
+    switchLemma (emp (mulE x x₁) x₂) = emp (mulE x₁ x) x₂
+    switchLemma (decom (MD1 x) x₁ eqpf) = decom (MD2 x) x₁ (switchLemma eqpf)
+    switchLemma (decom (MD2 x) x₁ eqpf) = decom (MD1 x) x₁ (switchLemma eqpf)
+    switchLemma (decom SD1 x₁ eq) = decom SD2 x₁ eq
+    switchLemma (decom SD2 x₁ eq) = decom SD1 x₁ eq
+  
+    singleDecLemma : ∀{Γ Δ A} → Γ decTo sCtx A and Δ → Δ empty → Γ ≡ sCtx A
+    singleDecLemma (SD x) empt = decom (SD empt) (SD empt) (emp empt empt)
+    singleDecLemma (MD1 decpf) (mulE empt empt₁) = decom (MD1 decpf) (SD empt₁) (emp (mulE empt empt₁) empt₁)
+    singleDecLemma (MD2 decpf) (mulE empt empt₁) = decom (MD2 decpf) (SD empt₁) (emp (mulE empt empt₁) empt₁)
+    singleDecLemma SD1 x = decom SD1 (SD x) (emp x x)
+    singleDecLemma SD2 x = decom SD2 (SD x) (emp x x)
+

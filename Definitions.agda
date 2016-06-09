@@ -32,7 +32,6 @@ data _⊢s_ : Ctx → Ctx → Set where
   var : ∀ {A} → (sCtx A) ⊢s (sCtx A)
   comma : ∀ {Γ₁ Γ₂ Δ₁ Δ₂} → Γ₁ ⊢s Δ₁ → Γ₂ ⊢s Δ₂ → (Γ₁ , Γ₂) ⊢s (Δ₁ , Δ₂)
   equiv : ∀ {Γ Γ' Δ Δ'} → Γ ≡ Γ' → Γ' ⊢s Δ' → Δ' ≡ Δ → Γ ⊢s Δ
-  subequiv : ∀ {Γ Γ' Δ Δ'} → Γ ⊢s Γ' → Γ' ≡ Δ' → Δ' ⊢s Δ → Γ ⊢s Δ
 
 data _size_ : Ctx → Nat → Set where
   s0 : {Γ : Ctx} → Γ empty → Γ size 0
